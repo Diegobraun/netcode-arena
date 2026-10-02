@@ -64,6 +64,8 @@ game-loop
   → no próximo tick: aplica a física
 ```
 
+O tiro segue esse mesmo caminho. Ele só é resolvido dentro do tick, na `game-loop`, quando `processInputs` encontra um input com `FIRE`, e `GameWorld.fire` consulta o histórico de posições. O histórico é gravado no fim de cada tick pela mesma thread, por isso o rewind lê posições passadas sem lock e sem risco de ver um tick pela metade.
+
 ### O caminho de um snapshot
 
 ```
@@ -85,6 +87,8 @@ Pouca coisa é lida por mais de uma thread, e cada caso usa a estrutura certa:
 - `tickRate` e `botCount`: `volatile`, porque são escritos pela `game-loop` e lidos pelas outras;
 - as condições de cada link: `volatile` dentro de `SimulatedLink`, porque o painel atualiza pela thread do Tomcat;
 - a fila de mensagens em trânsito de cada link: `synchronized`, porque várias threads adicionam mensagens (o Tomcat no uplink; a `game-loop` e a `net-sim` no downlink), e a `net-sim` retira.
+
+Fica de fora dessa lista o que só a `game-loop` toca: o histórico de posições (`PositionHistory`) e os eventos de tiro do tick (`shotsThisTick`). O snapshot copia esses eventos para bytes ainda na `game-loop`, antes de entregar à `net-sim`, então nenhuma outra thread vê essas estruturas.
 
 ## Alternativas consideradas
 

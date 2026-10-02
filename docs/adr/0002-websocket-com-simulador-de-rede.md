@@ -65,6 +65,15 @@ O simulador usa `max(200 ms, 2 × latência)`, ou seja, o maior valor entre o RT
 
 Jogos sobre UDP não deixam tudo sujeito a perda. Eles mantêm um canal confiável para eventos que não podem sumir. O simulador tem o mesmo conceito: `transmit(..., reliable = true)` nunca descarta a mensagem no modo UDP, só aplica a latência. O aviso de mudança de tick rate e de bots (`config`) usa esse canal. Snapshots e pongs não: se se perderem, o próximo resolve.
 
+### Tiros não usam o canal confiável
+
+Um tiro poderia parecer um evento que "não pode sumir" e, portanto, candidato ao canal confiável. Ele não usa esse canal: viaja dentro dos inputs ([ADR 0010](0010-tiro-com-lag-compensation.md)), que já são reenviados até o ack ([ADR 0004](0004-inputs-sequenciados-e-redundantes.md)). O efeito de cada modo sobre o tiro é diferente:
+
+- **UDP:** se o pacote com o tiro se perde, o mesmo tiro vai de novo no pacote seguinte, 1/60 s depois. O servidor processa o tiro com algum atraso, mas como ele carrega o `viewTick`, o rewind continua mirando o instante certo.
+- **TCP:** o tiro nunca se perde, mas pode ficar preso atrás de uma retransmissão. A confirmação do acerto chega centenas de milissegundos depois, junto com a rajada de snapshots. Nas medições do ADR 0010, isso fez parecer que tiros erravam quando só estavam atrasados.
+
+A lição é a mesma do resto do projeto: confiabilidade por redundância no nível do jogo é mais barata que confiabilidade por retransmissão no transporte.
+
 ### Fila de entrega ordenada (e o bug que ela corrigiu)
 
 A primeira versão agendava cada mensagem como uma tarefa independente: "envie esta daqui a X ns". Em teste no navegador, o modo TCP mostrou **snapshots fora de ordem**, algo que o TCP nunca faz.
@@ -108,3 +117,4 @@ A correção (em `SimulatedLink.transmit`): cada link mantém uma fila de priori
 
 - Presets **Rede ruim (UDP)** e **Rede ruim (TCP)**: mesmas condições (100 ms, jitter 40 ms, 10% de perda). Nos testes deste projeto, o RTT ficou em ~216 ms no UDP e entre ~350 e ~400 ms no TCP, com snapshots chegando em rajadas no TCP.
 - Testes: [`SimulatedLinkTest`](../../src/test/java/br/com/diegobraun/netcode/net/SimulatedLinkTest.java), que cobre latência e jitter, fração de perda no UDP, reordenação no UDP, ordem e ausência de perda no TCP, e o canal confiável.
+- Com o preset **Rede ruim (TCP)**, atire em bots: o acerto é confirmado, mas a marcação aparece bem depois do tracer local. No **Rede ruim (UDP)**, a confirmação vem num ritmo constante.

@@ -67,6 +67,14 @@ A física foi mantida de propósito longe de funções como `sin`, `cos`, `exp` 
 
 O snapshot envia as posições como `float32` ([ADR 0003](0003-protocolo-binario-e-json-de-controle.md)). O servidor está em `x = 412.37129...` (double) e o cliente recebe `412.37128...` (float32). Na reconciliação, o cliente parte desse valor arredondado. A diferença é de no máximo ~0,00003 px nesta arena, e o painel mostra **Correção 0.0 px**.
 
+### O que fica fora da física compartilhada
+
+O tiro **não** faz parte da física determinística. O teste de acerto (raio contra círculo, com rewind) roda só no servidor, em `GameWorld.fire`. O cliente desenha um tracer imediato até onde o clique apontou, mas não decide se acertou: espera o evento de tiro no snapshot ([ADR 0010](0010-tiro-com-lag-compensation.md)).
+
+Isso é proposital. Para prever um acerto, o cliente precisaria saber onde o servidor vê o alvo, e isso depende da interpolação e da latência, não só de inputs. Prever errado ("acertou!" seguido de "não acertou") é pior que esperar um RTT pela confirmação.
+
+O único pedaço do tiro replicado nos dois lados é o **cooldown**, contado em inputs (24), não em milissegundos. Por ser medido no mesmo relógio da física, o cliente sabe exatamente quando o servidor aceitará o próximo tiro, sem depender do relógio da máquina.
+
 ### Passo fixo no cliente
 
 O navegador desenha a tela no ritmo do monitor (60, 120, 144 Hz) com `requestAnimationFrame`, e esse ritmo varia. Os inputs, porém, são gerados num ritmo fixo de 60 por segundo, com um acumulador:
