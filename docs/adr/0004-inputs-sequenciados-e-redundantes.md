@@ -83,6 +83,10 @@ Cada input ocupa 5 bytes. Com `N` inputs pendentes, cada mensagem tem `2 + 5N` b
 
 É bem pouco. A redundância é barata porque um input é minúsculo.
 
+### Tiros pegam carona nos inputs
+
+O tiro ([ADR 0010](0010-tiro-com-lag-compensation.md)) não tem mensagem própria: é um input com o bit `FIRE` e 16 bytes a mais. Por isso ganha de graça tudo o que está descrito acima. É reenviado até o ack, então sobrevive à perda, e é deduplicado pelo `seq`, então o mesmo tiro nunca é processado duas vezes, mesmo chegando em 10 mensagens diferentes.
+
 ## Alternativas consideradas
 
 | Alternativa | Por que não |

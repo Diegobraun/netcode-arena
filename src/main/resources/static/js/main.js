@@ -15,7 +15,11 @@ const canvas = document.getElementById("arena");
 const ctx = canvas.getContext("2d");
 const $ = (id) => document.getElementById(id);
 
+const SHOT_EFFECT_MS = 900;
+const LOCAL_TRACER_MS = 120;
+
 const settings = {
+  lagCompensation: true,
   prediction: true,
   reconciliation: true,
   interpolation: true,
@@ -32,13 +36,17 @@ let tickRate = 20;
 let me = null;
 let pending = [];
 let seq = 0;
+let aim = null;
+let fireRequested = false;
+let lastShotSeq = -Infinity;
+const effects = [];
 
 let latest = null;
 let latestReceivedAt = 0;
 const history = [];
 let renderTick = null;
 
-const stats = { bytesIn: 0, bytesOut: 0, snapshots: 0, outOfOrder: 0, rtt: null, correction: 0, maxCorrection: 0 };
+const stats = { bytesIn: 0, bytesOut: 0, snapshots: 0, outOfOrder: 0, rtt: null, correction: 0, maxCorrection: 0, shots: 0, hits: 0, lastRewindMs: null };
 let pingId = 0;
 
 function connect() {
@@ -64,6 +72,7 @@ function onControl(message) {
       canvas.height = constants.arenaHeight;
       $("status").textContent = `conectado como jogador ${myId}`;
       sendNetSettings();
+      sendShootingSettings();
       requestAnimationFrame(frame);
       break;
     case "config":
@@ -99,6 +108,8 @@ function onSnapshot(buffer) {
   history.push(snapshot);
   while (history.length > 2 && history[0].tick < snapshot.tick - tickRate * 2) history.shift();
 
+  for (const shot of snapshot.shots) onShotEvent(shot);
+
   const server = snapshot.players.find((p) => p.id === myId);
   if (!server) return;
 
@@ -119,6 +130,22 @@ function onSnapshot(buffer) {
   me = corrected;
 }
 
+function onShotEvent(shot) {
+  const now = performance.now();
+  const mine = shot.shooterId === myId;
+  if (mine && shot.hitId) {
+    stats.hits++;
+  }
+  if (mine) stats.lastRewindMs = shot.compensated ? shot.rewindMs : 0;
+  effects.push({ kind: "server-shot", shot, mine, until: now + SHOT_EFFECT_MS });
+}
+
+function viewTick() {
+  if (!latest) return 0;
+  if (!settings.interpolation || renderTick === null || history.length < 2) return latest.tick;
+  return Math.max(history[0].tick, Math.min(renderTick, history[history.length - 1].tick));
+}
+
 function currentButtons() {
   let buttons = 0;
   if (keys.has("ArrowUp") || keys.has("KeyW")) buttons |= UP;
@@ -130,8 +157,17 @@ function currentButtons() {
 
 function sampleInput() {
   const input = { seq: ++seq, buttons: currentButtons() };
+  if (fireRequested && aim && seq - lastShotSeq >= constants.shotCooldownInputs) {
+    input.shot = { aimX: aim.x, aimY: aim.y, viewTick: viewTick() };
+    lastShotSeq = seq;
+    stats.shots++;
+  }
+  fireRequested = false;
   pending.push(input);
   if (settings.prediction && me) me = step(me, input.buttons, constants);
+  if (input.shot && me) {
+    effects.push({ kind: "local-tracer", from: { ...me }, to: { ...aim }, until: performance.now() + LOCAL_TRACER_MS });
+  }
   const message = encodeInputs(pending.slice(-MAX_INPUTS_PER_MESSAGE));
   if (socket.readyState === WebSocket.OPEN) {
     socket.send(message);
@@ -185,7 +221,7 @@ function interpolatedPlayers() {
   const alpha = (renderTick - older.tick) / (newer.tick - older.tick);
   return newer.players.map((p) => {
     const before = older.players.find((o) => o.id === p.id);
-    if (!before) return p;
+    if (!before || Math.hypot(p.x - before.x, p.y - before.y) > constants.teleportDistance) return p;
     return { ...p, x: before.x + (p.x - before.x) * alpha, y: before.y + (p.y - before.y) * alpha };
   });
 }
@@ -232,7 +268,54 @@ function draw() {
     label("você", me.x, me.y, textColor);
   }
 
+  drawEffects(textColor);
+  drawCrosshair(textColor);
   drawScores(textColor);
+}
+
+function drawEffects(textColor) {
+  const now = performance.now();
+  for (let i = effects.length - 1; i >= 0; i--) {
+    if (effects[i].until < now) effects.splice(i, 1);
+  }
+  for (const effect of effects) {
+    const life = (effect.until - now) / (effect.kind === "local-tracer" ? LOCAL_TRACER_MS : SHOT_EFFECT_MS);
+    ctx.globalAlpha = Math.max(0, Math.min(1, life));
+    if (effect.kind === "local-tracer") {
+      ctx.strokeStyle = textColor;
+      ctx.lineWidth = 1;
+      line(effect.from.x, effect.from.y, effect.to.x, effect.to.y);
+    } else {
+      const { shot } = effect;
+      ctx.strokeStyle = shot.hitId ? cssVar("--hit") : cssVar("--muted");
+      ctx.lineWidth = shot.hitId ? 2.5 : 1.5;
+      line(shot.originX, shot.originY, shot.endX, shot.endY);
+      if (shot.hitId) {
+        ctx.strokeStyle = cssVar("--hit");
+        ctx.setLineDash([3, 3]);
+        circle(shot.targetX, shot.targetY, constants.playerRadius, false);
+        ctx.setLineDash([]);
+        if (effect.mine) {
+          ctx.font = "bold 13px system-ui, sans-serif";
+          ctx.textAlign = "center";
+          ctx.fillStyle = cssVar("--hit");
+          const note = shot.compensated ? `+3 · rewind ${shot.rewindMs} ms` : "+3 · sem compensação";
+          ctx.fillText(note, shot.targetX, shot.targetY + constants.playerRadius + 16);
+        }
+      }
+    }
+  }
+  ctx.globalAlpha = 1;
+}
+
+function drawCrosshair(color) {
+  if (!aim) return;
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 1.5;
+  line(aim.x - 8, aim.y, aim.x - 3, aim.y);
+  line(aim.x + 3, aim.y, aim.x + 8, aim.y);
+  line(aim.x, aim.y - 8, aim.x, aim.y - 3);
+  line(aim.x, aim.y + 3, aim.x, aim.y + 8);
 }
 
 function drawScores(color) {
@@ -281,6 +364,10 @@ function sendNetSettings() {
   $("loss-value").textContent = `${$("loss").value}%`;
 }
 
+function sendShootingSettings() {
+  socket.send(JSON.stringify({ type: "shooting", lagCompensation: settings.lagCompensation }));
+}
+
 function sendServerSettings() {
   socket.send(JSON.stringify({ type: "server", tickRate: Number($("tick-rate").value), bots: Number($("bots").value) }));
   $("bots-value").textContent = $("bots").value;
@@ -305,6 +392,18 @@ function bindControls() {
     settings.interpDelayMs = Number($("interp-delay").value);
     $("interp-delay-value").textContent = `${settings.interpDelayMs} ms`;
   });
+  $("lagCompensation").addEventListener("change", () => {
+    settings.lagCompensation = $("lagCompensation").checked;
+    sendShootingSettings();
+  });
+  canvas.addEventListener("mousemove", (event) => (aim = canvasPoint(event)));
+  canvas.addEventListener("mouseleave", () => (aim = null));
+  canvas.addEventListener("mousedown", (event) => {
+    if (event.button !== 0) return;
+    aim = canvasPoint(event);
+    fireRequested = true;
+    event.preventDefault();
+  });
   ["prediction", "reconciliation", "interpolation", "ghost"].forEach((id) => {
     $(id).addEventListener("change", () => {
       settings[id] = $(id).checked;
@@ -323,6 +422,14 @@ function bindControls() {
   window.addEventListener("blur", () => keys.clear());
 }
 
+function canvasPoint(event) {
+  const rect = canvas.getBoundingClientRect();
+  return {
+    x: ((event.clientX - rect.left) / rect.width) * canvas.width,
+    y: ((event.clientY - rect.top) / rect.height) * canvas.height,
+  };
+}
+
 function updateStats() {
   $("stat-rtt").textContent = stats.rtt === null ? "—" : `${Math.round(stats.rtt)} ms`;
   $("stat-snapshots").textContent = `${stats.snapshots * 2}/s`;
@@ -332,6 +439,8 @@ function updateStats() {
   $("stat-correction").textContent = `${stats.correction.toFixed(1)} px (máx ${stats.maxCorrection.toFixed(1)})`;
   $("stat-out-of-order").textContent = stats.outOfOrder;
   $("stat-tick").textContent = latest ? latest.tick : "—";
+  $("stat-hits").textContent = `${stats.hits}/${stats.shots}`;
+  $("stat-rewind").textContent = stats.lastRewindMs === null ? "—" : `${stats.lastRewindMs} ms`;
   stats.bytesIn = 0;
   stats.bytesOut = 0;
   stats.snapshots = 0;

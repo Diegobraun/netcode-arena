@@ -2,6 +2,7 @@ export const UP = 1;
 export const DOWN = 2;
 export const LEFT = 4;
 export const RIGHT = 8;
+export const FIRE = 16;
 
 export function step(position, buttons, c) {
   const dx = (buttons & RIGHT ? 1 : 0) - (buttons & LEFT ? 1 : 0);

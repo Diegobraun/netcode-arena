@@ -11,7 +11,7 @@
 <main>
   <header>
     <h1>Netcode Arena</h1>
-    <p class="muted">Use <kbd>WASD</kbd> ou as setas para coletar orbes. Mude a rede e as técnicas no painel e veja o efeito. <span id="status" class="status">conectando…</span></p>
+    <p class="muted">Use <kbd>WASD</kbd> ou as setas para coletar orbes e <kbd>clique</kbd> para atirar. Mude a rede e as técnicas no painel e veja o efeito. <span id="status" class="status">conectando…</span></p>
   </header>
 
   <div class="layout">
@@ -26,6 +26,8 @@
         <div><span>Correção</span><b id="stat-correction">—</b></div>
         <div><span>Fora de ordem</span><b id="stat-out-of-order">0</b></div>
         <div><span>Tick do servidor</span><b id="stat-tick">—</b></div>
+        <div><span>Acertos / tiros</span><b id="stat-hits">0/0</b></div>
+        <div><span>Último rewind</span><b id="stat-rewind">—</b></div>
       </div>
     </div>
 
@@ -49,6 +51,12 @@
           <label class="inline"><input type="radio" name="mode" value="udp" checked> descartado (UDP)</label>
           <label class="inline"><input type="radio" name="mode" value="tcp"> retransmitido e bloqueia a fila (TCP)</label>
         </fieldset>
+      </section>
+
+      <section>
+        <h2>Tiro</h2>
+        <label class="inline"><input id="lagCompensation" type="checkbox" checked> Lag compensation no servidor</label>
+        <p class="muted small">Ligada: o servidor volta no tempo até o instante que você estava vendo para checar o acerto. Desligada: checa contra as posições atuais, e você precisa mirar à frente do alvo.</p>
       </section>
 
       <section>

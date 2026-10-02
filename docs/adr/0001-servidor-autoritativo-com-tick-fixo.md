@@ -12,11 +12,12 @@ Num jogo multiplayer, cada participante vê o mundo com atraso e por uma rede qu
 1. **O servidor é a única fonte da verdade.** Ele guarda o estado do mundo em [`GameWorld`](../../src/main/java/br/com/diegobraun/netcode/game/GameWorld.java) e só ele move jogadores, detecta coleta de orbes e soma pontos.
 2. **O cliente envia intenções, não resultados.** O cliente nunca diz "estou em x=412". Ele diz "no input 1042 eu estava apertando para a direita". O servidor aplica a física e decide onde o jogador foi parar.
 3. **A simulação avança em passos fixos (*ticks*).** O servidor roda a 20 Hz por padrão (configurável entre 5, 10, 20, 30 e 60 Hz no painel). Em cada tick ele:
-   1. processa os inputs que chegaram de cada jogador humano;
+   1. processa os inputs que chegaram de cada jogador humano, incluindo tiros ([ADR 0010](0010-tiro-com-lag-compensation.md));
    2. move os bots;
    3. verifica colisão com orbes e atualiza o placar;
    4. repõe orbes até haver 12 na arena;
-   5. envia um snapshot para cada cliente.
+   5. guarda as posições de todos no histórico usado pela lag compensation;
+   6. envia um snapshot para cada cliente.
 
 ## Como funciona em detalhe
 

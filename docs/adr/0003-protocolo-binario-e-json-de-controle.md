@@ -31,12 +31,16 @@ Implementado em [`protocol.js`](../../src/main/resources/static/js/protocol.js) 
 offset  tamanho  campo
 0       u8       tipo = 1 (INPUTS)
 1       u8       quantidade N (máx. 64; o cliente manda até 30)
-2       N × 5    para cada input:
+2       ...      para cada input:
                    u32  seq       número de sequência
-                   u8   buttons   bits: 1=cima 2=baixo 4=esquerda 8=direita
+                   u8   buttons   bits: 1=cima 2=baixo 4=esquerda 8=direita 16=atirar
+                   se o bit 16 (FIRE) estiver ligado, mais 16 bytes:
+                   f32  aimX      ponto mirado
+                   f32  aimY
+                   f64  viewTick  tick que estava na tela ao atirar
 ```
 
-Uma mensagem carrega **vários** inputs: todos os ainda não confirmados pelo servidor, até 30. O motivo está no [ADR 0004](0004-inputs-sequenciados-e-redundantes.md). O servidor rejeita mensagens cujo tamanho não bate com `2 + N × 5`, e mascara `buttons` com `0x0F` para ignorar bits desconhecidos.
+Uma mensagem carrega **vários** inputs: todos os ainda não confirmados pelo servidor, até 30. O motivo está no [ADR 0004](0004-inputs-sequenciados-e-redundantes.md). Cada input ocupa 5 bytes, ou 21 quando carrega um tiro ([ADR 0010](0010-tiro-com-lag-compensation.md)). O servidor rejeita mensagens truncadas ou com bytes sobrando, e mascara `buttons` com `0x1F` para ignorar bits desconhecidos. O `viewTick` é `f64` porque é fracionário e cresce sem parar: com `f32`, a parte fracionária perderia precisão depois de algumas horas de partida.
 
 ### Snapshot (servidor → cliente), binário
 
@@ -62,9 +66,18 @@ offset  tamanho  campo
                    u16  id
                    f32  x
                    f32  y
+...     u16      quantidade de tiros T processados neste tick
+...     T × 31   para cada tiro (ADR 0010):
+                   u16  shooterId
+                   u16  hitId (0 = errou)
+                   u8   flags (1 = compensado)
+                   f32  originX, originY
+                   f32  endX, endY
+                   f32  targetX, targetY  (onde o servidor viu o alvo)
+                   u16  rewindMs
 ```
 
-Tamanho: `16 + 14 × jogadores + 10 × orbes` bytes. Com você, 6 bots e 12 orbes, são **234 bytes**. A 20 Hz, 4,6 KB/s, que é o valor exibido em **Download** no painel nessa situação.
+Tamanho: `18 + 14 × jogadores + 10 × orbes + 31 × tiros` bytes. Com você, 6 bots, 12 orbes e nenhum tiro naquele tick, são **236 bytes**. A 20 Hz, 4,7 KB/s, que é o valor exibido em **Download** no painel nessa situação.
 
 O snapshot é montado **para cada conexão**, porque o `ackSeq` e o `yourId` são diferentes para cada jogador. O resto do conteúdo é igual para todos.
 
@@ -89,7 +102,7 @@ As constantes da física vêm do servidor no `welcome`, e o cliente usa esses va
 
 | Alternativa | Por que não |
 |---|---|
-| **JSON para tudo** | O mesmo snapshot (7 jogadores, 12 orbes) tem 962 bytes em JSON contra 234 em binário, ~4x mais, e parse de texto a 20–60 Hz por jogador. |
+| **JSON para tudo** | O mesmo snapshot (7 jogadores, 12 orbes) tem ~962 bytes em JSON contra 236 em binário, ~4x mais, e parse de texto a 20–60 Hz por jogador. |
 | **Protocol Buffers** | Daria payload próximo do binário manual, com evolução de esquema mais segura. Mas exige compilar o `.proto` e uma biblioteca no navegador, e o objetivo aqui é que cada byte do protocolo seja visível no código. Para um jogo real, Protobuf ou FlatBuffers seriam bons candidatos. |
 | **Delta compression** (enviar só o que mudou desde o último snapshot confirmado) | É o que jogos reais fazem e reduz muito a banda, mas exige que o cliente confirme snapshots e que o servidor guarde um histórico por cliente. Está no [ADR 0009](0009-fora-do-escopo-e-proximos-passos.md). |
 | **Binário também para controle** | Ganho de banda irrelevante, porque essas mensagens são raras, e perda de legibilidade ao depurar. |
@@ -110,4 +123,4 @@ As constantes da física vêm do servidor no `welcome`, e o cliente usa esses va
 
 - Painel: **Download** e **Upload** mostram a banda real. Mude o número de bots e veja o download crescer 14 bytes × tick rate por bot.
 - DevTools → Network → WS: os frames binários aparecem com o tamanho exato.
-- Testes: [`ProtocolTest`](../../src/test/java/br/com/diegobraun/netcode/net/ProtocolTest.java) (round-trip do snapshot, abaixo de 300 bytes com 10 jogadores, e rejeição de inputs malformados).
+- Testes: [`ProtocolTest`](../../src/test/java/br/com/diegobraun/netcode/net/ProtocolTest.java) (round-trip do snapshot com 10 jogadores e um evento de tiro; inputs com e sem tiro; rejeição de inputs malformados e de tiro sem os 16 bytes de dados).

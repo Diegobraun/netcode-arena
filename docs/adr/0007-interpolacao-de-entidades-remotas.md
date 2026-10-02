@@ -85,7 +85,7 @@ Com 5 Hz, aumente o atraso para ~400 ms no painel e o movimento volta a ficar su
 - Jitter e perdas ocasionais ficam invisíveis.
 
 **Negativas**
-- **Você vê os outros no passado:** 100 ms de atraso de interpolação mais ½ RTT de rede. Com 150 ms de RTT, um bot é desenhado onde estava ~175 ms atrás. Num jogo de tiro, mirar onde o inimigo aparece significa mirar onde ele estava, e o servidor precisa de *lag compensation* para aceitar o acerto ([ADR 0009](0009-fora-do-escopo-e-proximos-passos.md)).
+- **Você vê os outros no passado:** 100 ms de atraso de interpolação mais ½ RTT de rede. Com 150 ms de RTT, um bot é desenhado onde estava ~175 ms atrás. Mirar onde o inimigo aparece significa mirar onde ele estava, e o servidor precisa de *lag compensation* para aceitar o acerto ([ADR 0010](0010-tiro-com-lag-compensation.md)). O mesmo `renderTick` usado aqui é enviado com cada tiro como `viewTick`, e o servidor repete esta mesma interpolação no seu histórico.
 - Orbes e placar não são interpolados: aparecem e somem no último snapshot recebido.
 
 ## Como verificar

@@ -15,6 +15,7 @@ A ordem abaixo é a ordem sugerida de leitura: do servidor para o cliente, da re
 | [0007](0007-interpolacao-de-entidades-remotas.md) | Interpolação dos outros jogadores | Por que os outros se movem suave com só 20 atualizações/s? |
 | [0008](0008-modelo-de-threads.md) | Uma thread dona do mundo, outra da rede | Como evitar condições de corrida sem locks no jogo? |
 | [0009](0009-fora-do-escopo-e-proximos-passos.md) | O que ficou de fora | O que faltaria para um jogo de produção? |
+| [0010](0010-tiro-com-lag-compensation.md) | Tiro instantâneo com lag compensation | Como acertar quem você vê no passado? |
 
 ## Vocabulário
 
@@ -27,4 +28,6 @@ A ordem abaixo é a ordem sugerida de leitura: do servidor para o cliente, da re
 | **RTT** | *Round-trip time*: tempo de ida e volta de uma mensagem. Com 75 ms de latência em cada sentido, o RTT é 150 ms. |
 | **Jitter** | Variação da latência. Com jitter de 40 ms, cada mensagem leva entre a latência base e latência + 40 ms. |
 | **Head-of-line blocking** | No TCP, um pacote perdido segura a entrega de todos os seguintes até ser retransmitido. |
+| **Lag compensation** | O servidor volta no tempo até o instante que o atirador via para decidir se o tiro acertou. |
+| **Rewind** | Quanto o servidor voltou no tempo para checar um tiro. |
 | **Autoritativo** | O servidor é a fonte da verdade. O cliente só sugere (inputs) e mostra (renderiza). |

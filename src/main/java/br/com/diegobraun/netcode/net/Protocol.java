@@ -1,9 +1,13 @@
 package br.com.diegobraun.netcode.net;
 
+import br.com.diegobraun.netcode.game.GameConstants;
 import br.com.diegobraun.netcode.game.InputCommand;
 import br.com.diegobraun.netcode.game.Orb;
 import br.com.diegobraun.netcode.game.Player;
+import br.com.diegobraun.netcode.game.Position;
+import br.com.diegobraun.netcode.game.ShotEvent;
 
+import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -18,29 +22,45 @@ public final class Protocol {
     private static final int SNAPSHOT_HEADER_BYTES = 1 + 4 + 4 + 2 + 1;
     private static final int PLAYER_BYTES = 2 + 4 + 4 + 2 + 1 + 1;
     private static final int ORB_BYTES = 2 + 4 + 4;
+    private static final int SHOT_BYTES = 2 + 2 + 1 + 3 * 8 + 2;
 
     private Protocol() {
     }
 
     public static List<InputCommand> decodeInputs(ByteBuffer buffer) {
-        if (buffer.remaining() < 2 || buffer.get() != INPUTS) {
-            throw new IllegalArgumentException("Not an input message");
+        try {
+            if (buffer.remaining() < 2 || buffer.get() != INPUTS) {
+                throw new IllegalArgumentException("Not an input message");
+            }
+            int count = Byte.toUnsignedInt(buffer.get());
+            if (count > MAX_INPUTS_PER_MESSAGE) {
+                throw new IllegalArgumentException("Too many inputs");
+            }
+            List<InputCommand> inputs = new ArrayList<>(count);
+            for (int i = 0; i < count; i++) {
+                int seq = buffer.getInt();
+                int buttons = buffer.get() & GameConstants.BUTTON_MASK;
+                InputCommand.Shot shot = null;
+                if ((buttons & GameConstants.FIRE) != 0) {
+                    shot = new InputCommand.Shot(buffer.getFloat(), buffer.getFloat(), buffer.getDouble());
+                }
+                inputs.add(new InputCommand(seq, buttons, shot));
+            }
+            if (buffer.hasRemaining()) {
+                throw new IllegalArgumentException("Trailing bytes in input message");
+            }
+            return inputs;
+        } catch (BufferUnderflowException e) {
+            throw new IllegalArgumentException("Truncated input message", e);
         }
-        int count = Byte.toUnsignedInt(buffer.get());
-        if (count > MAX_INPUTS_PER_MESSAGE || buffer.remaining() != count * 5) {
-            throw new IllegalArgumentException("Malformed input message");
-        }
-        List<InputCommand> inputs = new ArrayList<>(count);
-        for (int i = 0; i < count; i++) {
-            inputs.add(new InputCommand(buffer.getInt(), buffer.get() & 0x0F));
-        }
-        return inputs;
     }
 
     public static ByteBuffer encodeSnapshot(long tick, int ackSeq, int yourId, int tickRate,
-                                            Collection<Player> players, List<Orb> orbs) {
-        ByteBuffer buffer = ByteBuffer.allocate(
-                SNAPSHOT_HEADER_BYTES + 2 + players.size() * PLAYER_BYTES + 2 + orbs.size() * ORB_BYTES);
+                                            Collection<Player> players, List<Orb> orbs, List<ShotEvent> shots) {
+        ByteBuffer buffer = ByteBuffer.allocate(SNAPSHOT_HEADER_BYTES
+                + 2 + players.size() * PLAYER_BYTES
+                + 2 + orbs.size() * ORB_BYTES
+                + 2 + shots.size() * SHOT_BYTES);
         buffer.put(SNAPSHOT);
         buffer.putInt((int) tick);
         buffer.putInt(ackSeq);
@@ -61,6 +81,21 @@ public final class Protocol {
             buffer.putFloat((float) orb.position().x());
             buffer.putFloat((float) orb.position().y());
         }
+        buffer.putShort((short) shots.size());
+        for (ShotEvent shot : shots) {
+            buffer.putShort((short) shot.shooterId());
+            buffer.putShort((short) shot.hitId());
+            buffer.put((byte) (shot.compensated() ? 1 : 0));
+            putPosition(buffer, shot.origin());
+            putPosition(buffer, shot.end());
+            putPosition(buffer, shot.targetAtShot() == null ? new Position(0, 0) : shot.targetAtShot());
+            buffer.putShort((short) Math.min(shot.rewindMs(), 0xFFFF));
+        }
         return buffer.flip();
+    }
+
+    private static void putPosition(ByteBuffer buffer, Position position) {
+        buffer.putFloat((float) position.x());
+        buffer.putFloat((float) position.y());
     }
 }

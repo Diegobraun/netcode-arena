@@ -1,16 +1,25 @@
 const INPUTS = 1;
 const SNAPSHOT = 1;
 
+const FIRE = 16;
+
 export function encodeInputs(inputs) {
-  const buffer = new ArrayBuffer(2 + inputs.length * 5);
+  const size = inputs.reduce((total, input) => total + 5 + (input.shot ? 16 : 0), 2);
+  const buffer = new ArrayBuffer(size);
   const view = new DataView(buffer);
   view.setUint8(0, INPUTS);
   view.setUint8(1, inputs.length);
   let offset = 2;
   for (const input of inputs) {
     view.setUint32(offset, input.seq);
-    view.setUint8(offset + 4, input.buttons);
+    view.setUint8(offset + 4, input.shot ? input.buttons | FIRE : input.buttons);
     offset += 5;
+    if (input.shot) {
+      view.setFloat32(offset, input.shot.aimX);
+      view.setFloat32(offset + 4, input.shot.aimY);
+      view.setFloat64(offset + 8, input.shot.viewTick);
+      offset += 16;
+    }
   }
   return buffer;
 }
@@ -45,5 +54,23 @@ export function decodeSnapshot(buffer) {
     offset += 10;
   }
 
-  return { tick, ackSeq, yourId, tickRate, players, orbs, bytes: buffer.byteLength };
+  const shots = [];
+  const shotCount = view.getUint16(offset); offset += 2;
+  for (let i = 0; i < shotCount; i++) {
+    shots.push({
+      shooterId: view.getUint16(offset),
+      hitId: view.getUint16(offset + 2),
+      compensated: view.getUint8(offset + 4) === 1,
+      originX: view.getFloat32(offset + 5),
+      originY: view.getFloat32(offset + 9),
+      endX: view.getFloat32(offset + 13),
+      endY: view.getFloat32(offset + 17),
+      targetX: view.getFloat32(offset + 21),
+      targetY: view.getFloat32(offset + 25),
+      rewindMs: view.getUint16(offset + 29),
+    });
+    offset += 31;
+  }
+
+  return { tick, ackSeq, yourId, tickRate, players, orbs, shots, bytes: buffer.byteLength };
 }

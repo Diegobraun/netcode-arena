@@ -2,6 +2,7 @@ package br.com.diegobraun.netcode.game;
 
 import java.util.ArrayDeque;
 import java.util.Deque;
+import java.util.function.Consumer;
 
 public final class Player {
 
@@ -14,6 +15,8 @@ public final class Player {
     private int lastQueuedSeq;
     private int lastProcessedSeq;
     private double botInputBudget;
+    private int lastShotSeq = Integer.MIN_VALUE / 2;
+    private boolean lagCompensation = true;
 
     Player(int id, boolean bot, int color, Position position) {
         this.id = id;
@@ -61,12 +64,35 @@ public final class Player {
         }
     }
 
-    void processInputs(int maxInputs) {
+    void processInputs(int maxInputs, Consumer<InputCommand> onFire) {
         for (int i = 0; i < maxInputs && !queue.isEmpty(); i++) {
             InputCommand input = queue.pollFirst();
             position = Physics.step(position, input.buttons());
             lastProcessedSeq = input.seq();
+            if (input.fires()) {
+                onFire.accept(input);
+            }
         }
+    }
+
+    boolean tryFire(int seq) {
+        if (seq - lastShotSeq < GameConstants.SHOT_COOLDOWN_INPUTS) {
+            return false;
+        }
+        lastShotSeq = seq;
+        return true;
+    }
+
+    void respawn(Position newPosition) {
+        position = newPosition;
+    }
+
+    public boolean lagCompensation() {
+        return lagCompensation;
+    }
+
+    void setLagCompensation(boolean enabled) {
+        lagCompensation = enabled;
     }
 
     void moveAsBot(int buttons, double inputsThisTick) {
@@ -78,6 +104,10 @@ public final class Player {
     }
 
     void addScore() {
-        score++;
+        addScore(1);
+    }
+
+    void addScore(int points) {
+        score += points;
     }
 }

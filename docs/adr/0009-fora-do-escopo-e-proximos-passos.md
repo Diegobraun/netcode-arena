@@ -11,15 +11,11 @@ Este ADR registra o que ficou de fora, por que importa e como seria implementado
 
 ## Decisão
 
-Ficam fora do escopo os itens abaixo, em ordem aproximada de importância para um jogo real.
+Ficam fora do escopo os itens abaixo, em ordem aproximada de importância para um jogo real. Itens riscados foram implementados depois.
 
-### 1. Lag compensation
+### 1. ~~Lag compensation~~ (implementada)
 
-**Problema:** você vê os outros jogadores ~100 ms (interpolação) + ½ RTT no passado ([ADR 0007](0007-interpolacao-de-entidades-remotas.md)). Num jogo com tiro, você mira onde o inimigo **aparece**, mas no servidor ele já está em outro lugar. Sem compensação, seria preciso mirar "na frente" do alvo, adivinhando o seu próprio ping.
-
-**Como seria:** o servidor guarda um histórico das posições de todos os jogadores no último segundo. Quando chega um tiro, ele calcula o instante que o atirador estava vendo (tick atual − ½ RTT − atraso de interpolação), "volta no tempo" para as posições daquele instante, testa o acerto e volta ao presente. É a origem do clássico "morri atrás da parede": no instante que o atirador via, você ainda não tinha chegado à parede.
-
-**Por que ficou de fora:** o jogo não tem ação contra outros jogadores. A coleta de orbes é decidida no presente do servidor.
+Inicialmente fora do escopo, porque o jogo não tinha ação contra outros jogadores. Com a adição do tiro, foi implementada no [ADR 0010](0010-tiro-com-lag-compensation.md).
 
 ### 2. Delta compression
 
@@ -27,7 +23,7 @@ Ficam fora do escopo os itens abaixo, em ordem aproximada de importância para u
 
 **Como seria:** o cliente confirma o último snapshot recebido. O servidor guarda os snapshots enviados para cada cliente e manda só a diferença em relação ao último confirmado: campos alterados, entidades que entraram e saíram. Se o cliente não confirmou nada recente, o servidor volta a mandar o estado completo. É a técnica do Quake 3 e de praticamente todos os FPS desde então.
 
-**Ganho esperado:** os orbes (120 dos 234 bytes do exemplo do [ADR 0003](0003-protocolo-binario-e-json-de-controle.md)) quase desapareceriam do tráfego.
+**Ganho esperado:** os orbes (120 dos 236 bytes do exemplo do [ADR 0003](0003-protocolo-binario-e-json-de-controle.md)) quase desapareceriam do tráfego.
 
 ### 3. Interest management
 
@@ -76,3 +72,4 @@ Ficam fora do escopo os itens abaixo, em ordem aproximada de importância para u
 - O código cabe numa leitura: ~800 linhas de Java (com imports) e ~400 de JavaScript.
 - Cada técnica implementada pode ser ligada, desligada e medida no painel, o que não seria viável com todas as camadas acima.
 - O projeto não deve ser usado como base de um jogo de produção sem pelo menos os itens 2, 4, 5 e 6.
+- Este ADR é atualizado quando um item sai do escopo e vira um ADR próprio, como aconteceu com o item 1.

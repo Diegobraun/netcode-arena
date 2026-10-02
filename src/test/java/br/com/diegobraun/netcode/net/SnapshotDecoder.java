@@ -4,12 +4,17 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 
-record SnapshotDecoder(long tick, int ackSeq, int yourId, int tickRate, List<PlayerState> players, List<OrbState> orbs) {
+record SnapshotDecoder(long tick, int ackSeq, int yourId, int tickRate, List<PlayerState> players, List<OrbState> orbs,
+                       List<ShotState> shots) {
 
     record PlayerState(int id, float x, float y, int score, int color, boolean bot) {
     }
 
     record OrbState(int id, float x, float y) {
+    }
+
+    record ShotState(int shooterId, int hitId, boolean compensated, float originX, float originY,
+                     float endX, float endY, float targetX, float targetY, int rewindMs) {
     }
 
     static SnapshotDecoder decode(ByteBuffer buffer) {
@@ -31,7 +36,14 @@ record SnapshotDecoder(long tick, int ackSeq, int yourId, int tickRate, List<Pla
         for (int i = 0; i < orbCount; i++) {
             orbs.add(new OrbState(Short.toUnsignedInt(buffer.getShort()), buffer.getFloat(), buffer.getFloat()));
         }
-        return new SnapshotDecoder(tick, ack, yourId, tickRate, players, orbs);
+        List<ShotState> shots = new ArrayList<>();
+        int shotCount = Short.toUnsignedInt(buffer.getShort());
+        for (int i = 0; i < shotCount; i++) {
+            shots.add(new ShotState(Short.toUnsignedInt(buffer.getShort()), Short.toUnsignedInt(buffer.getShort()),
+                    buffer.get() == 1, buffer.getFloat(), buffer.getFloat(), buffer.getFloat(), buffer.getFloat(),
+                    buffer.getFloat(), buffer.getFloat(), Short.toUnsignedInt(buffer.getShort())));
+        }
+        return new SnapshotDecoder(tick, ack, yourId, tickRate, players, orbs, shots);
     }
 
     PlayerState player(int id) {

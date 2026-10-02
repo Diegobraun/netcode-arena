@@ -17,6 +17,13 @@ public final class GameConstants {
     public static final int DOWN = 2;
     public static final int LEFT = 4;
     public static final int RIGHT = 8;
+    public static final int FIRE = 16;
+    public static final int BUTTON_MASK = UP | DOWN | LEFT | RIGHT | FIRE;
+
+    public static final int SHOT_COOLDOWN_INPUTS = 24;
+    public static final int SHOT_SCORE = 3;
+    public static final double MAX_REWIND_SECONDS = 1.0;
+    public static final double TELEPORT_DISTANCE = 100;
 
     private GameConstants() {
     }
@@ -28,6 +35,8 @@ public final class GameConstants {
                 "playerRadius", PLAYER_RADIUS,
                 "orbRadius", ORB_RADIUS,
                 "speed", SPEED,
-                "inputRate", INPUT_RATE);
+                "inputRate", INPUT_RATE,
+                "shotCooldownInputs", SHOT_COOLDOWN_INPUTS,
+                "teleportDistance", TELEPORT_DISTANCE);
     }
 }

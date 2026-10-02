@@ -8,6 +8,7 @@
   --grid: #ececE6;
   --orb: #f59f00;
   --accent: #1c7ed6;
+  --hit: #c92a2a;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -21,6 +22,7 @@
     --grid: #252523;
     --orb: #fcc419;
     --accent: #74c0fc;
+    --hit: #ff6b6b;
   }
 }
 
@@ -47,6 +49,7 @@ kbd { border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 
 @media (max-width: 900px) { .layout { grid-template-columns: 1fr; } }
 
 canvas {
+  cursor: crosshair;
   width: 100%;
   height: auto;
   aspect-ratio: 16 / 9;
@@ -58,7 +61,7 @@ canvas {
 
 .stats {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 8px;
   margin-top: 12px;
 }

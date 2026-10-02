@@ -16,9 +16,11 @@ import static br.com.diegobraun.netcode.game.GameConstants.DOWN;
 import static br.com.diegobraun.netcode.game.GameConstants.INPUT_RATE;
 import static br.com.diegobraun.netcode.game.GameConstants.LEFT;
 import static br.com.diegobraun.netcode.game.GameConstants.MAX_ORBS;
+import static br.com.diegobraun.netcode.game.GameConstants.MAX_REWIND_SECONDS;
 import static br.com.diegobraun.netcode.game.GameConstants.ORB_RADIUS;
 import static br.com.diegobraun.netcode.game.GameConstants.PLAYER_RADIUS;
 import static br.com.diegobraun.netcode.game.GameConstants.RIGHT;
+import static br.com.diegobraun.netcode.game.GameConstants.SHOT_SCORE;
 import static br.com.diegobraun.netcode.game.GameConstants.UP;
 
 public final class GameWorld {
@@ -30,6 +32,9 @@ public final class GameWorld {
     private final Random random;
     private final Map<Integer, Player> players = new LinkedHashMap<>();
     private final List<Orb> orbs = new ArrayList<>();
+    private final PositionHistory history = new PositionHistory();
+    private final List<ShotEvent> shots = new ArrayList<>();
+    private int tickRate = 20;
     private int nextPlayerId = 1;
     private int nextOrbId = 1;
     private long tick;
@@ -74,19 +79,95 @@ public final class GameWorld {
 
     public void tick(int tickRate) {
         tick++;
+        this.tickRate = tickRate;
+        shots.clear();
         double inputsPerTick = (double) INPUT_RATE / tickRate;
         int maxInputsPerTick = (int) Math.ceil(inputsPerTick) * 3;
-        for (Player player : players.values()) {
+        for (Player player : List.copyOf(players.values())) {
             if (player.bot()) {
                 player.moveAsBot(botButtons(player), inputsPerTick);
             } else {
-                player.processInputs(maxInputsPerTick);
+                player.processInputs(maxInputsPerTick, input -> fire(player, input));
             }
             collectOrbs(player);
         }
         while (orbs.size() < MAX_ORBS) {
             spawnOrb();
         }
+        history.record(tick, players.values(), (int) Math.ceil(MAX_REWIND_SECONDS * tickRate) + 2);
+    }
+
+    public void setLagCompensation(int playerId, boolean enabled) {
+        Player player = players.get(playerId);
+        if (player != null) {
+            player.setLagCompensation(enabled);
+        }
+    }
+
+    public List<ShotEvent> shotsThisTick() {
+        return Collections.unmodifiableList(shots);
+    }
+
+    private void fire(Player shooter, InputCommand input) {
+        if (!shooter.tryFire(input.seq())) {
+            return;
+        }
+        Position origin = shooter.position();
+        double dx = input.shot().aimX() - origin.x();
+        double dy = input.shot().aimY() - origin.y();
+        double length = Math.hypot(dx, dy);
+        if (length < 1e-6) {
+            return;
+        }
+        double ux = dx / length;
+        double uy = dy / length;
+
+        boolean compensated = shooter.lagCompensation() && !history.isEmpty();
+        double viewTick = compensated ? clampViewTick(input.shot().viewTick()) : tick;
+        Map<Integer, Position> targets = compensated ? history.positionsAt(viewTick) : currentPositions();
+
+        double hitDistance = distanceToArenaEdge(origin, ux, uy);
+        int hitId = 0;
+        Position targetAtShot = null;
+        for (Map.Entry<Integer, Position> target : targets.entrySet()) {
+            if (target.getKey() == shooter.id() || !players.containsKey(target.getKey())) {
+                continue;
+            }
+            double rx = target.getValue().x() - origin.x();
+            double ry = target.getValue().y() - origin.y();
+            double along = rx * ux + ry * uy;
+            double across = Math.abs(rx * uy - ry * ux);
+            if (along >= 0 && along <= hitDistance && across <= PLAYER_RADIUS) {
+                hitDistance = along;
+                hitId = target.getKey();
+                targetAtShot = target.getValue();
+            }
+        }
+
+        if (hitId != 0) {
+            shooter.addScore(SHOT_SCORE);
+            players.get(hitId).respawn(randomPosition(PLAYER_RADIUS * 2));
+        }
+        Position end = new Position(origin.x() + ux * hitDistance, origin.y() + uy * hitDistance);
+        int rewindMs = compensated ? (int) Math.round((tick - viewTick) * 1000.0 / tickRate) : 0;
+        shots.add(new ShotEvent(shooter.id(), hitId, compensated, origin, end, targetAtShot, rewindMs));
+    }
+
+    private double clampViewTick(double viewTick) {
+        double earliest = Math.max(history.oldestTick(), tick - MAX_REWIND_SECONDS * tickRate);
+        return Math.max(earliest, Math.min(viewTick, history.newestTick()));
+    }
+
+    private Map<Integer, Position> currentPositions() {
+        Map<Integer, Position> positions = new LinkedHashMap<>();
+        players.values().forEach(p -> positions.put(p.id(), p.position()));
+        return positions;
+    }
+
+    private static double distanceToArenaEdge(Position origin, double ux, double uy) {
+        double tx = ux > 0 ? (ARENA_WIDTH - origin.x()) / ux : ux < 0 ? -origin.x() / ux : Double.MAX_VALUE;
+        double ty = uy > 0 ? (ARENA_HEIGHT - origin.y()) / uy : uy < 0 ? -origin.y() / uy : Double.MAX_VALUE;
+        return Math.min(tx, ty);
     }
 
     public long currentTick() {

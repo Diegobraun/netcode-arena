@@ -127,6 +127,10 @@ public class GameServer implements SmartLifecycle {
                     message.path("lossPercent").asDouble(),
                     LinkConditions.Mode.valueOf(message.path("mode").asText("udp").toUpperCase())));
             case "server" -> game.execute(() -> updateServer(message));
+            case "shooting" -> {
+                boolean enabled = message.path("lagCompensation").asBoolean(true);
+                game.execute(() -> world.setLagCompensation(connection.playerId(), enabled));
+            }
             default -> {
             }
         }
@@ -161,7 +165,7 @@ public class GameServer implements SmartLifecycle {
             for (ClientConnection connection : connections.values()) {
                 int ack = world.player(connection.playerId()).map(Player::lastProcessedSeq).orElse(0);
                 ByteBuffer snapshot = Protocol.encodeSnapshot(world.currentTick(), ack, connection.playerId(), tickRate,
-                        world.players(), world.orbs());
+                        world.players(), world.orbs(), world.shotsThisTick());
                 send(connection, new BinaryMessage(snapshot), false);
             }
         } catch (RuntimeException e) {

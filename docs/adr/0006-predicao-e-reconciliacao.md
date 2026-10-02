@@ -108,7 +108,7 @@ Com **Mostrar posição do servidor** ligado, um círculo tracejado marca a posi
 - O servidor continua sendo a fonte da verdade: a previsão é sempre substituída pela versão oficial.
 
 **Negativas**
-- **Você vê o seu personagem no presente e os outros no passado** ([ADR 0007](0007-interpolacao-de-entidades-remotas.md)). Em jogos com tiro, isso exige *lag compensation* no servidor ([ADR 0009](0009-fora-do-escopo-e-proximos-passos.md)).
+- **Você vê o seu personagem no presente e os outros no passado** ([ADR 0007](0007-interpolacao-de-entidades-remotas.md)). Com tiro, isso exige *lag compensation* no servidor, implementada no [ADR 0010](0010-tiro-com-lag-compensation.md).
 - A reconciliação reaplica todos os inputs pendentes a cada snapshot: até 30 chamadas de `step`, 20 vezes por segundo. É barato aqui, mas cresce com física mais cara.
 - Eventos que o cliente não prevê (coletar o orbe) só aparecem depois de um RTT. Com 150 ms, você passa por cima do orbe e ele só some um instante depois.
 
