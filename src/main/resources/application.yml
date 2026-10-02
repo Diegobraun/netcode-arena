@@ -1,0 +1,9 @@
+spring:
+  application:
+    name: netcode-arena
+  main:
+    banner-mode: off
+
+game:
+  tick-rate: 20
+  bots: 3

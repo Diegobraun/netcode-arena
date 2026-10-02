@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Netcode Arena</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22%3E%3Ccircle cx=%228%22 cy=%228%22 r=%227%22 fill=%22%231c7ed6%22/%3E%3C/svg%3E">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main>
+  <header>
+    <h1>Netcode Arena</h1>
+    <p class="muted">Use <kbd>WASD</kbd> ou as setas para coletar orbes. Mude a rede e as técnicas no painel e veja o efeito. <span id="status" class="status">conectando…</span></p>
+  </header>
+
+  <div class="layout">
+    <div class="stage">
+      <canvas id="arena" width="960" height="540"></canvas>
+      <div class="stats">
+        <div><span>RTT</span><b id="stat-rtt">—</b></div>
+        <div><span>Snapshots</span><b id="stat-snapshots">—</b></div>
+        <div><span>Download</span><b id="stat-in">—</b></div>
+        <div><span>Upload</span><b id="stat-out">—</b></div>
+        <div><span>Inputs sem ack</span><b id="stat-pending">—</b></div>
+        <div><span>Correção</span><b id="stat-correction">—</b></div>
+        <div><span>Fora de ordem</span><b id="stat-out-of-order">0</b></div>
+        <div><span>Tick do servidor</span><b id="stat-tick">—</b></div>
+      </div>
+    </div>
+
+    <aside class="panel">
+      <section>
+        <h2>Rede simulada</h2>
+        <div class="presets">
+          <button data-preset="lan">LAN</button>
+          <button data-preset="continental">150 ms RTT</button>
+          <button data-preset="bad-udp">Rede ruim (UDP)</button>
+          <button data-preset="bad-tcp">Rede ruim (TCP)</button>
+        </div>
+        <label>Latência (cada sentido) <output id="latency-value">0 ms</output>
+          <input id="latency" type="range" min="0" max="300" step="5" value="0"></label>
+        <label>Jitter <output id="jitter-value">0 ms</output>
+          <input id="jitter" type="range" min="0" max="100" step="5" value="0"></label>
+        <label>Perda de pacotes <output id="loss-value">0%</output>
+          <input id="loss" type="range" min="0" max="30" step="1" value="0"></label>
+        <fieldset>
+          <legend>Pacote perdido é…</legend>
+          <label class="inline"><input type="radio" name="mode" value="udp" checked> descartado (UDP)</label>
+          <label class="inline"><input type="radio" name="mode" value="tcp"> retransmitido e bloqueia a fila (TCP)</label>
+        </fieldset>
+      </section>
+
+      <section>
+        <h2>Técnicas do cliente</h2>
+        <label class="inline"><input id="prediction" type="checkbox" checked> Predição no cliente</label>
+        <label class="inline"><input id="reconciliation" type="checkbox" checked> Reconciliação com o servidor</label>
+        <label class="inline"><input id="interpolation" type="checkbox" checked> Interpolação dos outros jogadores</label>
+        <label>Atraso da interpolação <output id="interp-delay-value">100 ms</output>
+          <input id="interp-delay" type="range" min="0" max="300" step="10" value="100"></label>
+        <label class="inline"><input id="ghost" type="checkbox" checked> Mostrar posição do servidor (tracejado)</label>
+      </section>
+
+      <section>
+        <h2>Servidor</h2>
+        <label>Tick rate
+          <select id="tick-rate">
+            <option value="5">5 Hz</option>
+            <option value="10">10 Hz</option>
+            <option value="20" selected>20 Hz</option>
+            <option value="30">30 Hz</option>
+            <option value="60">60 Hz</option>
+          </select></label>
+        <label>Bots <output id="bots-value">3</output>
+          <input id="bots" type="range" min="0" max="20" step="1" value="3"></label>
+        <p class="muted small">Tick rate e bots valem para todos os jogadores conectados.</p>
+      </section>
+    </aside>
+  </div>
+</main>
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
