@@ -74,7 +74,7 @@ O raciocínio por trás de cada parte está em ADRs (*Architecture Decision Reco
 | [0009](docs/adr/0009-fora-do-escopo-e-proximos-passos.md) | O que ficou de fora (delta compression, salas, reconexão...) |
 | [0010](docs/adr/0010-tiro-com-lag-compensation.md) | Tiro instantâneo com lag compensation |
 
-O [índice dos ADRs](docs/adr/README.md) tem um vocabulário com os termos usados (tick, snapshot, ack, RTT, jitter, head-of-line blocking).
+O [glossário](docs/glossario.md) define os termos usados no jogo, no painel e nos ADRs: tick, snapshot, input, ack, RTT, jitter, head-of-line blocking, predição, reconciliação, interpolação, lag compensation, rewind e outros.
 
 ## Estrutura
 
@@ -86,6 +86,7 @@ src/main/resources/static
 ├── index.html, style.css
 └── js/     main.js (loop, predição, reconciliação, interpolação, painel), physics.js, protocol.js
 docs/adr/   decisões de arquitetura
+docs/glossario.md
 ```
 
 ## Configuração

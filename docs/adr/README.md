@@ -19,15 +19,4 @@ A ordem abaixo é a ordem sugerida de leitura: do servidor para o cliente, da re
 
 ## Vocabulário
 
-| Termo | Significado aqui |
-|---|---|
-| **Tick** | Um passo da simulação no servidor. A 20 Hz, um tick a cada 50 ms. |
-| **Snapshot** | Mensagem do servidor com o estado do mundo num tick: posição de todos os jogadores e orbes. |
-| **Input** | Um comando do cliente: quais direções estavam pressionadas durante 1/60 s, com um número de sequência. |
-| **Ack** | O número do último input que o servidor já processou para aquele jogador. Vai dentro de cada snapshot. |
-| **RTT** | *Round-trip time*: tempo de ida e volta de uma mensagem. Com 75 ms de latência em cada sentido, o RTT é 150 ms. |
-| **Jitter** | Variação da latência. Com jitter de 40 ms, cada mensagem leva entre a latência base e latência + 40 ms. |
-| **Head-of-line blocking** | No TCP, um pacote perdido segura a entrega de todos os seguintes até ser retransmitido. |
-| **Lag compensation** | O servidor volta no tempo até o instante que o atirador via para decidir se o tiro acertou. |
-| **Rewind** | Quanto o servidor voltou no tempo para checar um tiro. |
-| **Autoritativo** | O servidor é a fonte da verdade. O cliente só sugere (inputs) e mostra (renderiza). |
+Os termos usados nos ADRs (tick, snapshot, ack, RTT, jitter, head-of-line blocking, predição, interpolação, rewind e outros) estão definidos no [glossário](../glossario.md).
